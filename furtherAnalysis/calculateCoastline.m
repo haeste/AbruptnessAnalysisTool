@@ -5,8 +5,7 @@ function [coastline,intermittancy,coast,coastsum] = calculateCoastline(signal,pr
 %   taken from before the event.
 coastsum = cumsum(abs(diff(signal)));
 coast = sort(abs(diff(signal)),'descend');
-meandeviation = mean(abs(diff(presle)));
-coastline = (sum(coast)/length(signal))./meandeviation;
+coastline = (sum(coast)/length(signal));
 intermittancy = sum(coast(1:round(length(coast)/5)))/sum(coast);
 end
 

@@ -22,7 +22,7 @@ function varargout = SeizureAnnotation(varargin)
 
 % Edit the above text to modify the response to help SeizureAnnotation
 
-% Last Modified by GUIDE v2.5 10-Sep-2018 14:38:35
+% Last Modified by GUIDE v2.5 10-Sep-2018 17:45:05
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -188,7 +188,7 @@ cla reset;
 axes(handles.axes1);
 handles.canvas = plottraceandannotation(handles.data,handles.output.CurrentAxes,handles.canvas,1);
 axes(handles.axes2);
-handles.canvas = plottraceandannotation(lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 linkaxes([handles.axes1,handles.axes2],'x')
 
 
@@ -226,7 +226,7 @@ else
     cla;
     cla reset;
     hold on;
-    handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+    handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
     hold off;
 end
 guidata(hObject, handles);
@@ -293,11 +293,7 @@ function cleansig_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 handles.data = cleansignal(handles.data, handles.filterparameters);
-if strcmp(handles.settings.analysis, 'SLE')
-    [handles.data.entropy, handles.data.entropy_time_course] = calculateShanEntropyOverTrace(handles.data.trace,handles.data.time_course, handles.parameters.SLE_slw_width, handles.parameters.SLE_slw_overlap, handles.data.sf);
-elseif strcmp(handles.settings.analysis, 'LRD')
-    [handles.data.entropy, handles.data.entropy_time_course] = calculateShanEntropyOverTrace(handles.data.trace,handles.data.time_course, handles.parameters.LRD_slw_width, handles.parameters.LRD_slw_overlap, handles.data.sf);
-end
+
 axes(handles.axes1)
 cla;
 cla reset;
@@ -305,7 +301,7 @@ handles.canvas = plottraceandannotation(handles.data,handles.output.CurrentAxes,
 axes(handles.axes2)
 cla;
 cla reset;
-handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas);
 
 linkaxes([handles.axes1,handles.axes2],'x')
 guidata(hObject, handles);
@@ -344,6 +340,7 @@ for i = 1:length(handles.data.seizure_times(1,:))
         selected = true;
     end
 end
+handles.lowfreqpow.selection = handles.data.selection;
 if selected
     hold( handles.axes1,'on');
      hold( handles.axes2,'on');
@@ -376,6 +373,8 @@ elseif x_extend >  handles.data.seizure_times(1,handles.data.selection) && ...
     end
 end
 handles.data.seizure_times = combinenearby(handles.data.seizure_times, handles.parameters.SLE_min_distapart, handles.parameters.SLE_min_length);
+handles.lowfreqpow.seizure_times =handles.data.seizure_times;
+handles.lowfreqpow.selection = handles.data.selection;
 axes(handles.axes1)
 cla;
 cla reset;
@@ -386,7 +385,7 @@ axes(handles.axes2)
 cla;
 cla reset;
 hold on;
-handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 hold off;
 guidata(hObject, handles);
 
@@ -406,6 +405,8 @@ else
     seizure_time = [x_new; x_new+3];
     handles.data.lrd_times = combinenearby(sort([handles.data.lrd_times seizure_time],2),handles.parameters.LRD_min_distapart, handles.parameters.LRD_min_length);
 end
+handles.lowfreqpow.seizure_times =handles.data.seizure_times;
+handles.lowfreqpow.selection = handles.data.selection;
 axes(handles.axes1)
 cla;
 cla reset;
@@ -416,7 +417,7 @@ axes(handles.axes2)
 cla;
 cla reset;
 hold on;
-handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 hold off;
 guidata(hObject, handles);
 
@@ -427,7 +428,9 @@ function deleteevent_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 handles.data.seizure_times(:,handles.data.selection) = [];
+handles.lowfreqpow.seizure_times =handles.data.seizure_times;
 handles.data.selection = 1;
+handles.lowfreqpow.selection = handles.data.selection;
 axes(handles.axes1)
 cla;
 cla reset;
@@ -438,7 +441,7 @@ axes(handles.axes2)
 cla;
 cla reset;
 hold on;
-handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 hold off;
 %handles.canvas = changeeventcolour(handles.data.selection,handles.data.seizure_times,handles.canvas,handles.canvas.selectcolour,handles);
 guidata(hObject, handles);
@@ -500,23 +503,7 @@ guidata(hObject, handles);
 
 
 
-% --- Executes when selected object is changed in selectparams.
-function selectparams_SelectionChangedFcn(hObject, eventdata, handles)
-% hObject    handle to the selected object in selectparams
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-if strcmp(eventdata.NewValue.String,'SLE params')
-    handles.settings.analysis = 'SLE';
-    [handles.data.entropy, handles.data.entropy_time_course] = calculateShanEntropyOverTrace(handles.data.trace,handles.data.time_course, handles.parameters.SLE_slw_width, handles.parameters.SLE_slw_overlap, handles.data.sf);
-elseif strcmp(eventdata.NewValue.String,'LRD params')
-    handles.settings.analysis = 'LRD';
-    [handles.data.entropy, handles.data.entropy_time_course] = calculateShanEntropyOverTrace(handles.data.trace,handles.data.time_course, handles.parameters.LRD_slw_width, handles.parameters.LRD_slw_overlap, handles.data.sf);
-end
-axes(handles.axes1)
-plottraceandannotation(handles.data)
-axes(handles.axes2)
-plotEntropy(handles.data)
-guidata(hObject, handles);
+
 
 
 
@@ -577,40 +564,6 @@ set(hObject, 'String', handles.parameters.SLE_min_distapart )
 guidata(hObject, handles);
 
 
-function edit7_Callback(hObject, eventdata, handles)
-% hObject    handle to edit7 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit7 as text
-%        str2double(get(hObject,'String')) returns contents of edit7 as a double
-handles.parameters.LRD_min_distapart = str2double(get(hObject,'String'));
-guidata(hObject, handles);
-
-% --- Executes during object creation, after setting all properties.
-function edit7_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit7 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-handles.parameters.LRD_min_distapart = 1;%seconds
-disp(handles)
-set(hObject, 'String', handles.parameters.LRD_min_distapart )
-guidata(hObject, handles);
-
-
-% --- Executes during object creation, after setting all properties.
-function uibuttongroup3_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to uibuttongroup3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-disp(hObject)
-
 
 % --- Executes on selection change in tracemenu.
 function tracemenu_Callback(hObject, eventdata, handles)
@@ -630,6 +583,7 @@ handles.settings.current_vector  = str2num(tracestring(end));
 data.trace = data.data_downsampled{handles.settings.current_vector};
 data.time_course = data.time_course_all{handles.settings.current_vector};
 data.seizure_times = data.seizure_times_all{handles.settings.current_vector};
+
 [data.highpass, data.lowpass, data.theta] = filter_trace(data.trace, data.sf, handles.filterparameters);
 
 
@@ -648,8 +602,13 @@ handles.canvas.height =  meantrace + twostdtrace;
 meantrace = mean(lowfreqpow.trace);
 twostdtrace = 2*std(lowfreqpow.trace);
 handles.canvas.lowpowheight =  meantrace + twostdtrace;
+lowfreqpow.seizure_times = data.seizure_times;
 handles.lowfreqpow = lowfreqpow;
 handles.data = data;
+if isfield(data, 'selection')
+
+handles.lowfreqpow.selection = handles.data.selection;
+end
 
 axes(handles.axes1);
 cla;
@@ -658,7 +617,7 @@ handles.canvas = plottraceandannotation(handles.data,handles.output.CurrentAxes,
 axes(handles.axes2);
 cla;
 cla reset;
-handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2,handles.lowfreqpow.trace);
+handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 guidata(hObject, handles);
 % --- Executes during object creation, after setting all properties.
 function tracemenu_CreateFcn(hObject, eventdata, handles)
