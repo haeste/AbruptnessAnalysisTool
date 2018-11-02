@@ -22,7 +22,7 @@ function varargout = SeizureAnnotation(varargin)
 
 % Edit the above text to modify the response to help SeizureAnnotation
 
-% Last Modified by GUIDE v2.5 10-Sep-2018 17:45:05
+% Last Modified by GUIDE v2.5 02-Nov-2018 09:59:21
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -65,11 +65,7 @@ settings.data_loaded = false;
 
 filterparameters.highpass = 150; % highpass filter cut off frequency
 filterparameters.lowpass = 40; %low pass filter cut off frequency
-handles.parameters.cons_SLE_offset     = 5; % in datapoints in coarse entropy trace the minimum number of data points under the threshold at which two SLE events are separated as being individual events;
-handles.parameters.SLE_slw_width = 10000;
-handles.parameters.SLE_slw_overlap =  handles.parameters.SLE_slw_width/2;
-handles.parameters.LRD_slw_width = 1000;
-handles.parameters.LRD_slw_overlap     = handles.parameters.LRD_slw_width/2;  % = 2.5s  @ 2kHz
+
 handles.parameters.preseizure_duration = 10;
 handles.filterparameters = filterparameters;
 handles.settings = settings;
@@ -99,13 +95,14 @@ function loaddata_Callback(hObject, eventdata, handles)
 
 settings = handles.settings;
 
-[file_name, file_path] = uigetfile({'*.axgd';'*.mat'},'Select file', '~/');
+[file_name, file_path] = uigetfile({'*.mat';'*.axgd'},'Select file', '~/');
 settings.file_path = [file_path file_name];
 if endsWith(file_name,'.mat')
     file_struct = load(settings.file_path);
     fnames = fieldnames(file_struct);
     for i = 1:length(fnames)
         if isfield(file_struct.(fnames{i}),'values')
+            tracenames{i} = fnames{i};
             data_vec{i} = file_struct.(fnames{i}).values;
             time_vec{i} = file_struct.(fnames{i}).interval:file_struct.(fnames{i}).interval:length(data_vec{i})*file_struct.(fnames{i}).interval;
         end
@@ -122,25 +119,24 @@ end
 if ~iscell(time_vec)
     temptime = time_vec;
     time_vec = cell(size(data_vec));
-    for i = 1:size(data_vec,1)
+    for i = 1:size(data_vec,2)
         dt_raw{i}      = mean(diff(temptime));
         fs_raw{i}      = 1/dt_raw{i};
         time_vec{i} = temptime;
     end
 else
-    for i = 1:size(time_vec,1)
+    for i = 1:size(time_vec,2)
 
        dt_raw{i}      = mean(diff(time_vec{i}));
        fs_raw{i}      = 1/dt_raw{i};
     end
 end
 % resample to required rate
-h = waitbar(0,'Downsampling data..');
-data.tracenames = {};
+%h = waitbar(0,'Downsampling data..');
 for i = 1:length(data_vec)
     data.data_downsampled{i}  = resample(  data_vec{i}, ...
         settings.fs_rsmpl, round(fs_raw{i}))';
-    data.tracenames{i} = ['Trace' num2str(i)];
+    data.tracenames{i} = tracenames{i};
     
 end
 handles.tracemenu.String = data.tracenames;
@@ -149,13 +145,13 @@ data.name = file_name;
 data.seizure_times_all = cell(length(data_vec),1);
 data.eventtimesfilenames = cell(length(data_vec),1);
 clear data_vec;
-waitbar(100);
-close(h);
+%waitbar(100);
+%close(h);
 
 data.sf = settings.fs_rsmpl;
 % calculate time course for resampled trace
 for i = 1:length(time_vec)
-    data.time_course_all{i} = time_vec{i}: 1/data.sf: time_vec{i}+(length(data.trace)-1)/data.sf;
+    data.time_course_all{i} = time_vec{i}: 1/data.sf: time_vec{i}+(length(data.data_downsampled{i})-1)/data.sf;
 end
 data.time_course = data.time_course_all{handles.settings.current_vector};
 
@@ -478,9 +474,7 @@ function eventwidth_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of eventwidth as text
 %        str2double(get(hObject,'String')) returns contents of eventwidth as a double
-handles.parameters.SLE_slw_width = str2double(get(hObject,'String'));
-handles.parameters.SLE_slw_overlap =  handles.parameters.SLE_slw_width/2;  % = 2.5s  @ 2kHz
-
+handles.parameters.windowsize = str2double(get(hObject,'String'));
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
@@ -494,10 +488,10 @@ function eventwidth_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-handles.parameters.SLE_slw_width = 10000;
-handles.parameters.SLE_slw_overlap =  handles.parameters.SLE_slw_width/2;  % = 2.5s  @ 2kHz
+handles.parameters.windowsize = 1;
+
 disp(handles.parameters)
-set(hObject, 'String', handles.parameters.SLE_slw_width);
+set(hObject, 'String', handles.parameters.windowsize);
 guidata(hObject, handles);
 
 
@@ -579,7 +573,8 @@ data = handles.data;
 if isfield(data, 'seizure_times')
     data.seizure_times_all{handles.settings.current_vector} = data.seizure_times;
 end
-handles.settings.current_vector  = str2num(tracestring(end));
+
+handles.settings.current_vector  = hObject.Value;
 data.trace = data.data_downsampled{handles.settings.current_vector};
 data.time_course = data.time_course_all{handles.settings.current_vector};
 data.seizure_times = data.seizure_times_all{handles.settings.current_vector};
@@ -598,7 +593,7 @@ lowfreq.minusbaseline = lowfreq.trace - mean(lowfreq.baseline);
 meantrace = mean(data.trace);
 twostdtrace = 2*std(data.trace);
 handles.canvas.height =  meantrace + twostdtrace;
-[lowfreqpow.trace,lowfreqpow.time_course] = sigpoweroverwindow(lowfreq.minusbaseline,handles.parameters.SLE_min_length/2,data.sf);
+[lowfreqpow.trace,lowfreqpow.time_course] = sigpoweroverwindow(lowfreq.minusbaseline,handles.parameters.windowsize,data.sf);
 meantrace = mean(lowfreqpow.trace);
 twostdtrace = 2*std(lowfreqpow.trace);
 handles.canvas.lowpowheight =  meantrace + twostdtrace;
@@ -619,6 +614,7 @@ cla;
 cla reset;
 handles.canvas = plottraceandannotation(handles.lowfreqpow,handles.output.CurrentAxes,handles.canvas,2);
 guidata(hObject, handles);
+
 % --- Executes during object creation, after setting all properties.
 function tracemenu_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to tracemenu (see GCBO)
@@ -631,13 +627,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over eventwidth.
-function eventwidth_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to eventwidth (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
 
 % --- Executes on button press in furtherAnalysis.

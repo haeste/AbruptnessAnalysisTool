@@ -24,7 +24,7 @@ if (isfield(data, 'seizure_times') && ~isempty(data.seizure_times))
     
 end
 hold(currentaxes,'off')
-
+xlabel('(Seconds)');
 
 end
 
