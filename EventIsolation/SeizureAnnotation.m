@@ -101,7 +101,7 @@ if endsWith(file_name,'.mat')
     file_struct = load(settings.file_path);
     fnames = fieldnames(file_struct);
     for i = 1:length(fnames)
-        if isfield(file_struct.(fnames{i}),'values')
+        if isfield(file_struct.(fnames{i}),'values') && isfield(file_struct.(fnames{i}),'interval')
             tracenames{i} = fnames{i};
             data_vec{i} = file_struct.(fnames{i}).values;
             time_vec{i} = file_struct.(fnames{i}).interval:file_struct.(fnames{i}).interval:length(data_vec{i})*file_struct.(fnames{i}).interval;
